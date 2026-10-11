@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1822">
+<meta name="description" content="Generador de contraseñas seguras que funciona sin conexión">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Generador de contraseñas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+html,body{margin:0}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+
+/* Layout: one narrow column, the password "readout" on top, controls below like a device panel */
+:root {
+  --bg: #eef1f4;
+  --surface: #ffffff;
+  --fg: #16202b;
+  --muted: #5d6b7a;
+  --line: #d5dce3;
+  --accent: #1f6feb;
+  --accent-fg: #ffffff;
+  --readout: #0f1822;
+  --readout-fg: #e8f0f8;
+  --weak: #d1453b; --fair: #d98b16; --good: #2f9e5b; --great: #1a7f8a;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e141b; --surface: #16202a; --fg: #e3eaf1; --muted: #93a2b2; --line: #273444;
+    --accent: #4c8dff; --accent-fg: #06101d; --readout: #070c11; --readout-fg: #e8f0f8;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e141b; --surface: #16202a; --fg: #e3eaf1; --muted: #93a2b2; --line: #273444;
+  --accent: #4c8dff; --accent-fg: #06101d; --readout: #070c11; --readout-fg: #e8f0f8;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 15px; }
+.wrap { max-width: 520px; margin: 0 auto; padding-inline: 16px; padding-block: 24px 40px; display: grid; gap: 16px; }
+h1 { font-size: 1.35rem; font-weight: 600; margin: 0; text-wrap: balance; }
+.sub { margin: 4px 0 0; color: var(--muted); font-size: .9rem; }
+
+.readout { background: var(--readout); color: var(--readout-fg); border-radius: 14px; padding: 18px 16px 14px; display: grid; gap: 14px; }
+.pw { font-family: var(--mono); font-size: 1.35rem; line-height: 1.45; word-break: break-all; min-height: 2.9em; user-select: all; }
+.pw .d { color: #7fb4ff; } .pw .s { color: #f5b14c; }
+.meter { display: grid; gap: 6px; }
+.bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,.12); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; border-radius: 3px; transition: width .25s, background .25s; }
+.meta { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: .8rem; color: #a9b8c8; font-variant-numeric: tabular-nums; }
+.meta b { color: var(--readout-fg); font-weight: 600; }
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+button { font: inherit; font-weight: 600; border-radius: 10px; padding: 12px; cursor: pointer; border: 1px solid transparent; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.primary { background: var(--accent); color: var(--accent-fg); }
+.ghost { background: transparent; color: var(--readout-fg); border-color: rgba(255,255,255,.25); }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 18px; }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; background: var(--bg); border-radius: 10px; padding: 4px; gap: 4px; }
+.tabs button { padding: 9px; background: transparent; color: var(--muted); }
+.tabs button[aria-selected="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.row { display: grid; gap: 8px; }
+.row label.top { display: flex; justify-content: space-between; font-weight: 500; }
+.row label.top output { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--accent); }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.checks { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.chk { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; min-width: 0; }
+.chk input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
+.chk span { display: grid; min-width: 0; }
+.chk small { color: var(--muted); font-family: var(--mono); font-size: .75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chk.wide { grid-column: 1 / -1; }
+.sep { display: flex; gap: 6px; flex-wrap: wrap; }
+.sep button { padding: 8px 14px; background: var(--bg); color: var(--fg); border-color: var(--line); font-family: var(--mono); }
+.sep button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+
+.history { display: grid; gap: 6px; }
+.history h2 { font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0; font-weight: 600; }
+.history ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.history li { display: flex; gap: 8px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.history code { flex: 1; min-width: 0; font-family: var(--mono); font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history li button { padding: 6px 10px; font-size: .8rem; background: var(--bg); color: var(--fg); border-color: var(--line); }
+.note { color: var(--muted); font-size: .8rem; margin: 0; }
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%) translateY(20px); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-weight: 600; font-size: .9rem; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; }
+.toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Generador de contraseñas</h1>
+    <p class="sub">Se generan en tu móvil, también sin conexión. No se envían a ningún sitio.</p>
+  </header>
+
+  <section class="readout" aria-live="polite">
+    <div class="pw" id="pw"></div>
+    <div class="meter">
+      <div class="bar"><i id="barFill"></i></div>
+      <div class="meta"><span>Seguridad: <b id="strength">—</b></span><span><b id="bits">0</b> bits · <span id="crack">—</span></span></div>
+    </div>
+    <div class="actions">
+      <button class="ghost" id="regen" type="button">Generar otra</button>
+      <button class="primary" id="copy" type="button">Copiar</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" id="tabChars" aria-selected="true">Caracteres</button>
+      <button type="button" role="tab" id="tabWords" aria-selected="false">Frase de palabras</button>
+    </div>
+
+    <div id="charsPane" class="row" style="gap:18px">
+      <div class="row">
+        <label class="top" for="len">Longitud <output id="lenOut">16</output></label>
+        <input type="range" id="len" min="6" max="64" value="16">
+      </div>
+      <div class="checks">
+        <label class="chk"><input type="checkbox" id="upper" checked><span>Mayúsculas<small>A B C … Z</small></span></label>
+        <label class="chk"><input type="checkbox" id="lower" checked><span>Minúsculas<small>a b c … z</small></span></label>
+        <label class="chk"><input type="checkbox" id="digits" checked><span>Números<small>0 1 2 … 9</small></span></label>
+        <label class="chk"><input type="checkbox" id="symbols" checked><span>Símbolos<small>! @ # $ % & * ?</small></span></label>
+        <label class="chk wide"><input type="checkbox" id="noAmbig"><span>Evitar caracteres que se confunden<small>sin 0 O o 1 l I | — útil para dictar o apuntar en papel</small></span></label>
+      </div>
+    </div>
+
+    <div id="wordsPane" class="row" style="gap:18px" hidden>
+      <div class="row">
+        <label class="top" for="wcount">Palabras <output id="wcountOut">4</output></label>
+        <input type="range" id="wcount" min="3" max="8" value="4">
+      </div>
+      <div class="row">
+        <span style="font-weight:500">Separador</span>
+        <div class="sep" id="sepGroup">
+          <button type="button" data-sep="-" aria-pressed="true">-</button>
+          <button type="button" data-sep="." aria-pressed="false">.</button>
+          <button type="button" data-sep="_" aria-pressed="false">_</button>
+          <button type="button" data-sep=" " aria-pressed="false">espacio</button>
+        </div>
+      </div>
+      <div class="checks">
+        <label class="chk"><input type="checkbox" id="wCap" checked><span>Mayúscula inicial<small>Casa-Rio</small></span></label>
+        <label class="chk"><input type="checkbox" id="wNum" checked><span>Añadir número<small>Casa-Rio-47</small></span></label>
+      </div>
+      <p class="note">Más fácil de recordar y teclear. Con 5 palabras o más es muy segura.</p>
+    </div>
+  </section>
+
+  <section class="history" id="historyBox" hidden>
+    <h2>Generadas en esta sesión</h2>
+    <ol id="history"></ol>
+    <p class="note">Se borran al cerrar la página.</p>
+  </section>
+</div>
+<div class="toast" id="toast">Copiada</div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const SETS = {
+    upper: "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    lower: "abcdefghijklmnopqrstuvwxyz",
+    digits: "0123456789",
+    symbols: "!@#$%&*?+-=_.:;/"
+  };
+  const AMBIG = /[0Oo1lI|]/g;
+  const WORDS = ("agua aire alba arco arena azul bahia barco bosque brisa cable caja calle cama campo canal cielo cobre cometa cuerda dado delta duna eco enchufe faro fibra flor fuego gato globo grano hielo hierro hoja huerto isla jardin lago lana lapiz leche limon llave lluvia luna madera mapa mar menta miel monte motor nido niebla nube olivo onda oro oso pan papel pato perro piedra pino plata playa pluma polo puente puerta queso radio rama rayo red rio roca rosa sal selva sol tejado tierra tigre torre tren trigo tubo uva vaca valle vapor vela verde vidrio viento volcan yeso zorro cable panel cobre bombilla regleta tornillo tuerca taladro nivel brocha").split(" ");
+
+  // Unbiased random integer in [0, n)
+  function rand(n) {
+    const max = Math.floor(0x100000000 / n) * n;
+    const buf = new Uint32Array(1);
+    let x;
+    do { crypto.getRandomValues(buf); x = buf[0]; } while (x >= max);
+    return x % n;
+  }
+  const pick = s => s[rand(s.length)];
+
+  let mode = "chars", sep = "-", current = "";
+  const history = [];
+
+  function activeSets() {
+    const noAmb = $("noAmbig").checked;
+    return Object.keys(SETS).filter(k => $(k).checked).map(k => noAmb ? SETS[k].replace(AMBIG, "") : SETS[k]);
+  }
+
+  function genChars() {
+    const sets = activeSets();
+    if (!sets.length) { $("lower").checked = true; return genChars(); }
+    const len = +$("len").value;
+    const all = sets.join("");
+    const out = sets.map(pick); // at least one from each chosen set
+    while (out.length < len) out.push(pick(all));
+    for (let i = out.length - 1; i > 0; i--) { const j = rand(i + 1); [out[i], out[j]] = [out[j], out[i]]; }
+    return { pw: out.slice(0, len).join(""), bits: len * Math.log2(all.length) };
+  }
+
+  function genWords() {
+    const n = +$("wcount").value;
+    const uniq = [...new Set(WORDS)];
+    let parts = [];
+    for (let i = 0; i < n; i++) {
+      let w = pick(uniq);
+      if ($("wCap").checked) w = w[0].toUpperCase() + w.slice(1);
+      parts.push(w);
+    }
+    let bits = n * Math.log2(uniq.length);
+    if ($("wNum").checked) { parts.push(String(rand(90) + 10)); bits += Math.log2(90); }
+    return { pw: parts.join(sep), bits };
+  }
+
+  function crackTime(bits) {
+    // Offline attack at 1e11 guesses/s, average case = half the space
+    const s = Math.pow(2, bits - 1) / 1e11;
+    if (s < 1) return "se descifra al instante";
+    const units = [["segundos",60],["minutos",60],["horas",24],["días",365],["años",1e3],["mil años",1e3],["millones de años",1e3]];
+    let v = s, i = 0;
+    while (i < units.length - 1 && v >= units[i][1]) { v /= units[i][1]; i++; }
+    if (i === units.length - 1 && v >= 1000) return "prácticamente imposible";
+    return "≈ " + Math.round(v).toLocaleString("es-ES") + " " + units[i][0];
+  }
+
+  function rate(bits) {
+    if (bits < 45) return ["Débil", "var(--weak)"];
+    if (bits < 65) return ["Aceptable", "var(--fair)"];
+    if (bits < 90) return ["Fuerte", "var(--good)"];
+    return ["Muy fuerte", "var(--great)"];
+  }
+
+  function render(pw) {
+    const el = $("pw"); el.textContent = "";
+    for (const ch of pw) {
+      const span = document.createElement("span");
+      if (/[0-9]/.test(ch)) span.className = "d";
+      else if (!/[A-Za-z ]/.test(ch)) span.className = "s";
+      span.textContent = ch; el.appendChild(span);
+    }
+  }
+
+  function generate(addOld) {
+    if (addOld && current) {
+      history.unshift(current); if (history.length > 5) history.pop(); drawHistory();
+    }
+    const r = mode === "chars" ? genChars() : genWords();
+    current = r.pw; render(r.pw);
+    const [label, color] = rate(r.bits);
+    $("strength").textContent = label;
+    $("bits").textContent = Math.round(r.bits);
+    $("crack").textContent = crackTime(r.bits);
+    const f = $("barFill"); f.style.width = Math.min(100, r.bits / 128 * 100) + "%"; f.style.background = color;
+  }
+
+  function drawHistory() {
+    const ol = $("history"); ol.textContent = "";
+    history.forEach(p => {
+      const li = document.createElement("li");
+      const c = document.createElement("code"); c.textContent = p;
+      const b = document.createElement("button"); b.type = "button"; b.textContent = "Copiar";
+      b.addEventListener("click", () => copy(p, c));
+      li.append(c, b); ol.appendChild(li);
+    });
+    $("historyBox").hidden = history.length === 0;
+  }
+
+  let tt;
+  function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(tt); tt = setTimeout(() => t.classList.remove("on"), 1600); }
+  function selectEl(el) { const r = document.createRange(); r.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+  function copy(text, el) {
+    try {
+      navigator.clipboard.writeText(text).then(() => toast("Copiada"), () => { selectEl(el); toast("Seleccionada: mantén pulsado para copiar"); });
+    } catch (e) { selectEl(el); toast("Seleccionada: mantén pulsado para copiar"); }
+  }
+
+  $("copy").addEventListener("click", () => copy(current, $("pw")));
+  $("regen").addEventListener("click", () => generate(true));
+  $("len").addEventListener("input", e => { $("lenOut").textContent = e.target.value; generate(false); });
+  $("wcount").addEventListener("input", e => { $("wcountOut").textContent = e.target.value; generate(false); });
+  ["upper","lower","digits","symbols","noAmbig","wCap","wNum"].forEach(id => $(id).addEventListener("change", () => {
+    if (!activeSets().length) $(id).checked = true;
+    generate(false);
+  }));
+  $("sepGroup").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    sep = b.dataset.sep;
+    $("sepGroup").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b));
+    generate(false);
+  });
+  function setMode(m) {
+    mode = m;
+    $("tabChars").setAttribute("aria-selected", m === "chars");
+    $("tabWords").setAttribute("aria-selected", m === "words");
+    $("charsPane").hidden = m !== "chars";
+    $("wordsPane").hidden = m !== "words";
+    generate(true);
+  }
+  $("tabChars").addEventListener("click", () => mode !== "chars" && setMode("chars"));
+  $("tabWords").addEventListener("click", () => mode !== "words" && setMode("words"));
+
+  generate(false);
+})();
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+</script>
+</body>
+</html>
